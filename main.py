@@ -2,6 +2,9 @@ from tkinter import *
 from tkinter import messagebox
 import random
 
+
+GRID_SIZE = 4
+
 class Board:
     bg_color={
 
@@ -36,15 +39,15 @@ class Board:
         self.window.title('2048 Game')
         self.gameArea=Frame(self.window,bg= 'azure3')
         self.board=[]
-        self.gridCell=[[0]*4 for i in range(4)]
+        self.gridCell=[[0] * GRID_SIZE for _ in range(GRID_SIZE)]
         self.compress=False
         self.merge=False
         self.moved=False
         self.score=0
 
-        for i in range(4):
+        for i in range(GRID_SIZE):
             rows=[]
-            for j in range(4):
+            for j in range(GRID_SIZE):
                 l=Label(self.gameArea,text='',bg='azure4',
                 font=('arial',22,'bold'),width=4,height=2)
                 l.grid(row=i,column=j,padx=7,pady=7)
@@ -54,23 +57,17 @@ class Board:
         self.gameArea.grid()
 
     def reverse(self):
-        for ind in range(4):
-            i=0
-            j=3
-            while(i<j):
-                self.gridCell[ind][i],self.gridCell[ind][j]=self.gridCell[ind][j],self.gridCell[ind][i]
-                i+=1
-                j-=1
+        self.gridCell = [list(reversed(row)) for row in self.gridCell]
 
     def transpose(self):
         self.gridCell=[list(t)for t in zip(*self.gridCell)]
 
     def compressGrid(self):
         self.compress=False
-        temp=[[0] *4 for i in range(4)]
-        for i in range(4):
+        temp=[[0] * GRID_SIZE for _ in range(GRID_SIZE)]
+        for i in range(GRID_SIZE):
             cnt=0
-            for j in range(4):
+            for j in range(GRID_SIZE):
                 if self.gridCell[i][j]!=0:
                     temp[i][cnt]=self.gridCell[i][j]
                     if cnt!=j:
@@ -80,8 +77,8 @@ class Board:
 
     def mergeGrid(self):
         self.merge=False
-        for i in range(4):
-            for j in range(4 - 1):
+        for i in range(GRID_SIZE):
+            for j in range(GRID_SIZE - 1):
                 if self.gridCell[i][j] == self.gridCell[i][j + 1] and self.gridCell[i][j] != 0:
                     self.gridCell[i][j] *= 2
                     self.gridCell[i][j + 1] = 0
@@ -90,30 +87,32 @@ class Board:
 
     def random_cell(self):
         cells=[]
-        for i in range(4):
-            for j in range(4):
+        for i in range(GRID_SIZE):
+            for j in range(GRID_SIZE):
                 if self.gridCell[i][j] == 0:
                     cells.append((i, j))
+        if not cells:
+            return
         curr=random.choice(cells)
         i=curr[0]
         j=curr[1]
         self.gridCell[i][j]=2
     
     def can_merge(self):
-        for i in range(4):
-            for j in range(3):
+        for i in range(GRID_SIZE):
+            for j in range(GRID_SIZE - 1):
                 if self.gridCell[i][j] == self.gridCell[i][j+1]:
                     return True
         
-        for i in range(3):
-            for j in range(4):
+        for i in range(GRID_SIZE - 1):
+            for j in range(GRID_SIZE):
                 if self.gridCell[i+1][j] == self.gridCell[i][j]:
                     return True
         return False
 
     def paintGrid(self):
-        for i in range(4):
-            for j in range(4):
+        for i in range(GRID_SIZE):
+            for j in range(GRID_SIZE):
                 if self.gridCell[i][j]==0:
                     self.board[i][j].config(text='',bg='azure4')
                 else:
@@ -134,6 +133,22 @@ class Game:
         self.gamepanel.paintGrid()
         self.gamepanel.window.bind('<Key>', self.link_keys)
         self.gamepanel.window.mainloop()
+
+    def _make_move(self, transpose=False, reverse=False):
+        if transpose:
+            self.gamepanel.transpose()
+        if reverse:
+            self.gamepanel.reverse()
+
+        self.gamepanel.compressGrid()
+        self.gamepanel.mergeGrid()
+        self.gamepanel.moved = self.gamepanel.compress or self.gamepanel.merge
+        self.gamepanel.compressGrid()
+
+        if reverse:
+            self.gamepanel.reverse()
+        if transpose:
+            self.gamepanel.transpose()
     
     def link_keys(self,event):
         if self.end or self.won:
@@ -146,65 +161,31 @@ class Game:
         pressed_key=event.keysym
 
         if pressed_key=='Up':
-            self.gamepanel.transpose()
-            self.gamepanel.compressGrid()
-            self.gamepanel.mergeGrid()
-            self.gamepanel.moved = self.gamepanel.compress or self.gamepanel.merge
-            self.gamepanel.compressGrid()
-            self.gamepanel.transpose()
+            self._make_move(transpose=True)
 
         elif pressed_key=='Down':
-            self.gamepanel.transpose()
-            self.gamepanel.reverse()
-            self.gamepanel.compressGrid()
-            self.gamepanel.mergeGrid()
-            self.gamepanel.moved = self.gamepanel.compress or self.gamepanel.merge
-            self.gamepanel.compressGrid()
-            self.gamepanel.reverse()
-            self.gamepanel.transpose()
+            self._make_move(transpose=True, reverse=True)
 
         elif pressed_key=='Left':
-            self.gamepanel.compressGrid()
-            self.gamepanel.mergeGrid()
-            self.gamepanel.moved = self.gamepanel.compress or self.gamepanel.merge
-            self.gamepanel.compressGrid()
+            self._make_move()
 
         elif pressed_key=='Right':
-            self.gamepanel.reverse()
-            self.gamepanel.compressGrid()
-            self.gamepanel.mergeGrid()
-            self.gamepanel.moved = self.gamepanel.compress or self.gamepanel.merge
-            self.gamepanel.compressGrid()
-            self.gamepanel.reverse()
+            self._make_move(reverse=True)
         else:
             pass
 
         self.gamepanel.paintGrid()
-        print(self.gamepanel.score)
 
-        flag=0
-        for i in range(4):
-            for j in range(4):
-                if(self.gamepanel.gridCell[i][j]==2048):
-                    flag=1
-                    break
-
-        if(flag==1): #found 2048
+        if any(2048 in row for row in self.gamepanel.gridCell):
             self.won=True
             messagebox.showinfo('2048', message='You Won!!')
-            print("Won")
             return
 
-        for i in range(4):
-            for j in range(4):
-                if self.gamepanel.gridCell[i][j]==0:
-                    flag=1
-                    break
+        has_empty = any(0 in row for row in self.gamepanel.gridCell)
 
-        if not (flag or self.gamepanel.can_merge()):
+        if not (has_empty or self.gamepanel.can_merge()):
             self.end=True
             messagebox.showinfo('2048','Game Over!!!')
-            print("Over")
 
         if self.gamepanel.moved:
             self.gamepanel.random_cell()
